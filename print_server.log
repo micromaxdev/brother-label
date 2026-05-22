@@ -1,0 +1,129 @@
+Brother Print Server running on http://localhost:5000
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+  [127.0.0.1] "GET /health HTTP/1.1" 200 -
+
+Server stopped.
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 55207)
+Traceback (most recent call last):
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\socketserver.py", line 318, in _handle_request_noblock
+    self.process_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\socketserver.py", line 349, in process_request
+    self.finish_request(request, client_address)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+    ~~~~~~~~~~~^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+    ~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\http\server.py", line 424, in handle_one_request
+    method()
+    ~~~~~~^^
+  File "C:\Users\Saziz\Documents\GitHub\brother-label\print_server.py", line 126, in do_POST
+    print(f"\n  Print job received: {data}")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Saziz\AppData\Local\Programs\Python\Python313-32\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 72-73: character maps to <undefined>
+----------------------------------------
+Brother Print Server running on http://localhost:5000
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+  [127.0.0.1] "GET /health HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Skylar Li', 'visitorCompany': '??', 'visitorDate': '2026/04/23', 'visitorType': 'Contractor'}
+  Result: OK — Printed badge for 'Skylar Li'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+
+Server stopped.
+Brother Print Server running on http://localhost:5002
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+  [127.0.0.1] "GET / HTTP/1.1" 404 -
+  [127.0.0.1] "GET /favicon.ico HTTP/1.1" 404 -
+  [127.0.0.1] "GET /health HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Daddy Show-Bar', 'visitorCompany': "Surfer's Club", 'visitorDate': '2026/04/23', 'visitorType': 'Visitor'}
+  Result: OK — Printed badge for 'Daddy Show-Bar'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Daddy Show-Bar', 'visitorCompany': "Surfer's Club", 'visitorDate': '2026/04/23', 'visitorType': 'Visitor'}
+  Result: OK — Printed badge for 'Daddy Show-Bar'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+
+Server stopped.
+Brother Print Server running on http://localhost:5002
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+  [127.0.0.1] "GET /health HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Lovely Human', 'visitorCompany': 'Paradise Found', 'visitorDate': '2026/04/23', 'visitorType': 'Contractor', 'visitorId': '69e9caa687b9466b7611238d'}
+  Result: OK — Printed badge for 'Lovely Human'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Mick Jagger', 'visitorCompany': 'ACDC', 'visitorDate': '2026/04/24', 'visitorType': 'Visitor', 'visitorId': '69ead74387b9466b76112ad0'}
+  Result: OK — Printed badge for 'Mick Jagger'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Handy Andy', 'visitorCompany': 'Dsouza Pty Ltd', 'visitorDate': '2026/04/24', 'visitorType': 'Contractor', 'visitorId': '69eaee0db2c3b228d900d123'}
+  Result: OK — Printed badge for 'Handy Andy'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -
+
+Server stopped.
+Brother Print Server running on http://localhost:5050
+  Template : C:\Users\Saziz\AppData\Local\Temp\_MEI224402\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+Brother Print Server running on http://localhost:5050
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\dist\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+Brother Print Server running on http://localhost:5050
+  Template : C:\Users\Saziz\Documents\GitHub\brother-label\dist\QL-visitor-custom.lbx
+  Printer  : Brother QL-810W
+  Endpoints: GET /health   POST /print
+
+Waiting for print jobs... (Ctrl+C to stop)
+
+  [127.0.0.1] "GET /health HTTP/1.1" 200 -
+  [127.0.0.1] "OPTIONS /print HTTP/1.1" 200 -
+
+  Print job received: {'visitorName': 'Tory Aziz', 'visitorCompany': 'Micromax Pty Ltd', 'visitorDate': '2026/04/24', 'visitorType': 'Visitor', 'visitorId': '69eb11ece63a6febe25969b2'}
+  Print attempt 1/3...
+  Result: OK — Printed badge for 'Tory Aziz'
+  [127.0.0.1] "POST /print HTTP/1.1" 200 -

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visitor Badge Print — Test</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        max-width: 480px;
+        margin: 60px auto;
+        padding: 0 20px;
+        background: #f5f5f5;
+      }
+      h2 {
+        margin-bottom: 24px;
+      }
+      label {
+        display: block;
+        margin-top: 14px;
+        font-size: 13px;
+        color: #555;
+      }
+      input,
+      select {
+        width: 100%;
+        padding: 9px 10px;
+        margin-top: 4px;
+        font-size: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        margin-top: 24px;
+        width: 100%;
+        padding: 12px;
+        background: #1a73e8;
+        color: white;
+        font-size: 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:disabled {
+        background: #aaa;
+        cursor: not-allowed;
+      }
+      #status {
+        margin-top: 18px;
+        padding: 12px;
+        border-radius: 4px;
+        font-size: 14px;
+        display: none;
+      }
+      .ok {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+      .fail {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>🖨️ Visitor Badge Test</h2>
+
+    <label
+      >Visitor Name *
+      <input id="visitorName" type="text" placeholder="e.g. John Smith" />
+    </label>
+
+    <label
+      >Company
+      <input id="visitorCompany" type="text" placeholder="e.g. Acme Corp" />
+    </label>
+
+    <label
+      >Date
+      <input id="visitorDate" type="date" />
+    </label>
+
+    <label
+      >Visitor Type
+      <select id="visitorType">
+        <option value="Visitor">Visitor</option>
+        <option value="Contractor">Contractor</option>
+        <option value="Delivery">Delivery</option>
+        <option value="Staff">Staff</option>
+      </select>
+    </label>
+
+    <label
+      >Copies
+      <input id="copies" type="number" value="1" min="1" max="5" />
+    </label>
+
+    <button id="printBtn" onclick="printBadge()">Print Badge</button>
+
+    <div id="status"></div>
+
+    <script>
+      // Pre-fill today's date; date input requires YYYY-MM-DD format
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      document.getElementById("visitorDate").value = `${yyyy}-${mm}-${dd}`;
+
+      async function printBadge() {
+        const name = document.getElementById("visitorName").value.trim();
+        if (!name) {
+          showStatus("Visitor name is required.", false);
+          return;
+        }
+
+        const payload = {
+          visitorName: name,
+          visitorCompany: document
+            .getElementById("visitorCompany")
+            .value.trim(),
+          visitorDate: (
+            document.getElementById("visitorDate").value.trim() ||
+            `${yyyy}/${mm}/${dd}`
+          ).replace(/-/g, "/"),
+          visitorType: document.getElementById("visitorType").value,
+          copies: parseInt(document.getElementById("copies").value) || 1,
+        };
+
+        const btn = document.getElementById("printBtn");
+        btn.disabled = true;
+        btn.textContent = "Printing...";
+        showStatus("Sending to printer...", null);
+
+        try {
+          const res = await fetch("http://localhost:5050/print", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            showStatus(`✅ ${data.message}`, true);
+          } else {
+            showStatus(`❌ ${data.message}`, false);
+          }
+        } catch (err) {
+          showStatus(
+            `❌ Could not reach print server at localhost:5050 — is it running?`,
+            false,
+          );
+          console.error(err);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Print Badge";
+        }
+      }
+
+      function showStatus(msg, success) {
+        const el = document.getElementById("status");
+        el.textContent = msg;
+        el.className =
+          success === true ? "ok" : success === false ? "fail" : "";
+        el.style.display = "block";
+      }
+    </script>
+  </body>
+</html>
