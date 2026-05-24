@@ -45,6 +45,7 @@ def print_badge(data: dict, retries: int = 3, retry_delay: int = 5) -> tuple[boo
     date_str = data.get("visitorDate", date.today().strftime("%Y/%m/%d")).strip()
     v_type = data.get("visitorType", "Visitor").strip()
     visitor_id = data.get("visitorId", "").strip()
+    host = data.get("visitorHost", "").strip()
     copies = int(data.get("copies", 1))
 
     if not name:
@@ -66,6 +67,7 @@ def print_badge(data: dict, retries: int = 3, retry_delay: int = 5) -> tuple[boo
                 "visitorCompany": company,
                 "visitorDate": date_str,
                 "visitorType": v_type,
+                "visitorHost": host,
             }
             for field_name, value in fields.items():
                 try:
