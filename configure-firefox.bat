@@ -121,4 +121,23 @@ echo.
 echo You can now close this window.
 echo Firefox will pick up these settings on next launch.
 echo.
+rem ── Firefox camera policy (installation-level) ──────────────────────────
+set FF_DIST="C:\Program Files\Mozilla Firefox\distribution"
+if not exist %FF_DIST% mkdir %FF_DIST%
+
+echo Writing Firefox camera policy...
+(
+echo {
+echo   "policies": {
+echo     "Permissions": {
+echo       "Camera": {
+echo         "Allow": ["http://maxbox.local", "http://192.168.1.123"],
+echo         "BlockNewRequests": false,
+echo         "Locked": false
+echo       }
+echo     }
+echo   }
+echo }
+) > %FF_DIST%\policies.json
+echo   [OK] Camera permission granted for maxbox.local
 pause
