@@ -122,14 +122,27 @@ sleep 2
 
 header "STEP 2 of 5: USB Power & Permissions"
 
-# Blacklist the usblp kernel module — it auto-claims the USB printer port and
-# blocks brother_ql (which uses libusb directly, bypassing CUPS/usblp entirely).
+# Stop and disable every daemon that auto-claims the USB printer port.
+# All three (usblp kernel module, CUPS, ipp-usb) will cause [Errno 16]
+# Resource busy and block brother_ql from accessing the device directly.
+
+# 1. usblp kernel module
 BLACKLIST_FILE="/etc/modprobe.d/blacklist-usblp.conf"
 echo "blacklist usblp" > "$BLACKLIST_FILE"
 update-initramfs -u 2>&1 | tee -a "$LOG"
-# Also unload it right now if it's currently loaded
 modprobe -r usblp 2>/dev/null || true
-ok "usblp kernel module blacklisted (prevents 'Resource busy' USB conflicts)."
+ok "usblp kernel module blacklisted."
+
+# 2. CUPS print server
+systemctl stop    cups cups-browsed 2>/dev/null || true
+systemctl disable cups cups-browsed 2>/dev/null || true
+ok "CUPS stopped and disabled."
+
+# 3. ipp-usb — Ubuntu 20.04+ daemon that grabs USB printers as IPP devices.
+#    Runs independently of CUPS and will hold the device even when CUPS is off.
+systemctl stop    ipp-usb 2>/dev/null || true
+systemctl disable ipp-usb 2>/dev/null || true
+ok "ipp-usb stopped and disabled."
 
 # Disable USB autosuspend for Brother printers (replaces Windows powercfg)
 # Also unbind usblp immediately on plug-in as a belt-and-suspenders fallback.

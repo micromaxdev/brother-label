@@ -32,7 +32,7 @@ except ImportError as e:
 # ── CONFIG ───────────────────────────────────────────────────────
 PORT          = 5050
 PRINTER_MODEL = "QL-810W"
-LABEL_SIZE    = "62"          # 62 mm continuous tape
+LABEL_SIZE    = "62red"       # 62 mm two-colour (black + red) continuous tape
 BROTHER_VID   = 0x04f9        # Brother USB vendor ID
 
 # 62 mm tape at 300 DPI → 696 px wide (fixed by tape width)
@@ -98,9 +98,9 @@ def build_label_image(name: str, company: str, date_str: str,
     INNER_W   = LABEL_W - 2 * MARGIN
     y         = 0
 
-    # ── Visitor-type banner (black bar) ──────────────────────────
+    # ── Visitor-type banner (red bar — printed in red ink) ───────
     banner_h  = 90
-    draw.rectangle([0, y, LABEL_W, y + banner_h], fill="black")
+    draw.rectangle([0, y, LABEL_W, y + banner_h], fill=(255, 0, 0))
     f_banner  = _load_font(FONT_PATHS, 56)
     draw.text((MARGIN, y + 16), v_type.upper(), fill="white", font=f_banner)
     y += banner_h + 18
@@ -193,7 +193,7 @@ def print_badge(data: dict, retries: int = 3, retry_delay: int = 5) -> tuple[boo
                 threshold=70.0,
                 dither=False,
                 compress=False,
-                red=False,
+                red=True,
                 dpi_600=False,
                 hq=True,
                 cut=True,
