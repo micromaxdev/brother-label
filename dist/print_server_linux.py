@@ -33,11 +33,13 @@ PORT          = 5050
 PRINTER_MODEL = "QL-810W"
 LABEL_SIZE    = "62red"       # 62 mm two-colour (black + red) continuous tape
 BROTHER_VID   = 0x04f9        # Brother USB vendor ID
+BASE_DIR      = Path(__file__).resolve().parent
 
-# 62 mm tape at 300 DPI → 696 px wide (fixed by tape width)
-# ~90 mm tall = 1063 px — adjust LABEL_H to resize the badge
-LABEL_W = 696
-LABEL_H = 1063
+# Landscape badge — image is wider than tall, rotated 90° when sent to printer.
+# LABEL_H = 696 px is fixed (62 mm tape width at 300 DPI).
+# LABEL_W = tape length: 1100 px ≈ 93 mm (~3.7") — comfortable badge length.
+LABEL_W = 1100
+LABEL_H = 696
 
 FONT_PATHS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -102,64 +104,103 @@ def _make_qr(data: str, px_size: int) -> Image.Image:
     return qr_img.resize((px_size, px_size), Image.LANCZOS)
 
 
-def build_label_image(name: str, company: str, date_str: str,
+def _load_logo(max_w: int, max_h: int) -> Image.Image | None:
+    """Load logo1.png from the same folder as this script, scaled to fit."""
+    logo_path = BASE_DIR / "logo1.png"
+    if not logo_path.exists():
+        print(f"  [WARN] Logo not found at {logo_path}", flush=True)
+        return None
+    try:
+        logo = Image.open(logo_path)
+        # Flatten transparency onto white so it prints cleanly
+        if logo.mode in ("RGBA", "LA"):
+            bg = Image.new("RGB", logo.size, "white")
+            bg.paste(logo, mask=logo.split()[-1])
+            logo = bg
+        else:
+            logo = logo.convert("RGB")
+        # Scale down to fit within max_w × max_h, preserving aspect ratio
+        logo.thumbnail((max_w, max_h), Image.LANCZOS)
+        return logo
+    except Exception as e:
+        print(f"  [WARN] Could not load logo: {e}", flush=True)
+        return None
+
+
+def build_label_image(name: str, company: str,
                       v_type: str, host: str, visitor_id: str) -> Image.Image:
+    # ── Canvas ───────────────────────────────────────────────────
+    # Landscape orientation — wide × tall (62 mm = 696 px fixed height).
+    # rotated 90° in convert() so it prints sideways along the tape.
     img  = Image.new("RGB", (LABEL_W, LABEL_H), "white")
     draw = ImageDraw.Draw(img)
 
-    MARGIN  = 24
-    QR_SIZE = 190   # px — QR code square, sits top-right inside the banner
-    QR_PAD  = 8     # gap between QR and label edge / banner text
+    PAD     = 36          # uniform padding from all edges
+    QR_SIZE = 175         # QR code square size in pixels
+    BAR_H   = 70          # red bottom bar height
 
-    # ── Top banner with QR code top-right ────────────────────────
-    banner_h = QR_SIZE + QR_PAD * 2   # banner height driven by QR size
-    draw.rectangle([0, 0, LABEL_W, banner_h], fill=(255, 0, 0))
+    today = date.today().strftime("%d/%m/%Y")
 
-    # QR code — white background block inset into top-right corner
-    qr_x = LABEL_W - QR_SIZE - QR_PAD
-    qr_y = QR_PAD
+    # ── QR code — top right ───────────────────────────────────────
+    qr_x = LABEL_W - PAD - QR_SIZE
+    qr_y = PAD
     if visitor_id:
         try:
             qr_img = _make_qr(visitor_id, QR_SIZE)
-            # White backing so QR is readable against red banner
-            draw.rectangle([qr_x - QR_PAD, 0, LABEL_W, banner_h], fill="white")
             img.paste(qr_img, (qr_x, qr_y))
         except Exception as e:
             print(f"  QR error: {e}", flush=True)
 
-    # Visitor-type text — left side of banner, vertically centred
-    text_max_w = qr_x - QR_PAD - MARGIN - 8
-    f_banner   = _load_font(FONT_PATHS, 54)
-    vtype_y    = (banner_h - 54) // 2
-    draw.text((MARGIN, vtype_y), v_type.upper(), fill="white", font=f_banner)
+    # ── Logo — top left ───────────────────────────────────────────
+    logo_max_w = qr_x - PAD - 30       # stay clear of QR code
+    logo_max_h = QR_SIZE               # same height budget as QR
+    logo = _load_logo(logo_max_w, logo_max_h)
+    if logo:
+        # Vertically centre the logo within the QR height zone
+        logo_y = PAD + (QR_SIZE - logo.height) // 2
+        img.paste(logo, (PAD, logo_y))
 
-    y = banner_h + 20
+    # ── Horizontal divider below logo/QR zone ─────────────────────
+    div_y = PAD + QR_SIZE + 18
+    draw.line([(PAD, div_y), (LABEL_W - PAD, div_y)], fill="#cccccc", width=2)
 
-    # ── Visitor name ─────────────────────────────────────────────
-    INNER_W = LABEL_W - 2 * MARGIN
-    f_name  = _load_font(FONT_PATHS, 70)
-    for line in _wrap_text(name, f_name, INNER_W, draw):
-        draw.text((MARGIN, y), line, fill="black", font=f_name)
-        y += 82
+    # ── Visitor name ──────────────────────────────────────────────
+    content_w = LABEL_W - 2 * PAD
+    y = div_y + 22
 
-    y += 4
+    f_name = _load_font(FONT_PATHS, 82)
+    for line in _wrap_text(name, f_name, content_w, draw):
+        draw.text((PAD, y), line, fill="black", font=f_name)
+        y += 95
 
-    # ── Company ──────────────────────────────────────────────────
+    # ── Company ───────────────────────────────────────────────────
     if company:
-        f_co = _load_font(FONT_PATHS, 44)
-        for line in _wrap_text(company, f_co, INNER_W, draw):
-            draw.text((MARGIN, y), line, fill="#222222", font=f_co)
-            y += 54
+        f_co = _load_font(FONT_PATHS, 46)
+        for line in _wrap_text(company, f_co, content_w, draw):
+            draw.text((PAD, y), line, fill="#333333", font=f_co)
+            y += 56
 
-    # ── Host ─────────────────────────────────────────────────────
+    # ── Red bottom bar — visitor type (left) · host (centre) · date (right) ──
+    bar_y = LABEL_H - PAD - BAR_H
+    draw.rectangle([(0, bar_y), (LABEL_W, LABEL_H)], fill=(255, 0, 0))
+
+    f_bar  = _load_font(FONT_PATHS,    38)
+    f_barr = _load_font(FONT_REG_PATHS, 36)
+    text_y = bar_y + (BAR_H - 38) // 2
+
+    # Visitor type — left
+    draw.text((PAD, text_y), v_type.upper(), fill="white", font=f_bar)
+
+    # Date — right
+    date_w = int(draw.textlength(today, font=f_barr))
+    draw.text((LABEL_W - PAD - date_w, text_y + 2), today, fill="white", font=f_barr)
+
+    # Host — centre
     if host:
-        f_sub = _load_font(FONT_REG_PATHS, 38)
-        draw.text((MARGIN, y), f"Host: {host}", fill="#555555", font=f_sub)
-        y += 50
-
-    # ── Date ─────────────────────────────────────────────────────
-    f_date = _load_font(FONT_REG_PATHS, 38)
-    draw.text((MARGIN, y), date_str, fill="#555555", font=f_date)
+        host_str = f"Host: {host}"
+        host_w   = int(draw.textlength(host_str, font=f_barr))
+        draw.text(((LABEL_W - host_w) // 2, text_y + 2), host_str,
+                  fill="white", font=f_barr)
 
     return img
 
@@ -180,7 +221,7 @@ def print_badge(data: dict, retries: int = 3, retry_delay: int = 5) -> tuple[boo
     if not printer_uri:
         return False, "Brother printer not found. Is the QL-810W connected via USB and powered on?"
 
-    label_image = build_label_image(name, company, date_str, v_type, host, visitor_id)
+    label_image = build_label_image(name, company, v_type, host, visitor_id)
     last_error  = ""
 
     for attempt in range(1, retries + 1):
@@ -192,7 +233,7 @@ def print_badge(data: dict, retries: int = 3, retry_delay: int = 5) -> tuple[boo
                 qlr=qlr,
                 images=[label_image],
                 label=LABEL_SIZE,
-                rotate="0",
+                rotate="90",
                 threshold=70.0,
                 dither=False,
                 compress=False,
