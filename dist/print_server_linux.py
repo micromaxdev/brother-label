@@ -18,15 +18,14 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 try:
     from PIL import Image, ImageDraw, ImageFont
-    import barcode as bc_lib
-    from barcode.writer import ImageWriter
+    import qrcode
     from brother_ql.raster import BrotherQLRaster
     from brother_ql.backends.helpers import send
     from brother_ql.conversion import convert
     import usb.core
 except ImportError as e:
     print(f"[FAIL] Missing dependency: {e}")
-    print("       Run: pip install brother_ql Pillow python-barcode pyusb")
+    print("       Run: pip install brother_ql Pillow qrcode[pil] pyusb")
     sys.exit(1)
 
 # ── CONFIG ───────────────────────────────────────────────────────
@@ -89,24 +88,56 @@ def _wrap_text(text: str, font, max_width: int, draw: ImageDraw.ImageDraw) -> li
     return lines or [""]
 
 
+def _make_qr(data: str, px_size: int) -> Image.Image:
+    """Generate a square QR code image scaled to px_size × px_size."""
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=6,
+        border=2,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    return qr_img.resize((px_size, px_size), Image.LANCZOS)
+
+
 def build_label_image(name: str, company: str, date_str: str,
                       v_type: str, host: str, visitor_id: str) -> Image.Image:
     img  = Image.new("RGB", (LABEL_W, LABEL_H), "white")
     draw = ImageDraw.Draw(img)
 
-    MARGIN    = 24
-    INNER_W   = LABEL_W - 2 * MARGIN
-    y         = 0
+    MARGIN  = 24
+    QR_SIZE = 190   # px — QR code square, sits top-right inside the banner
+    QR_PAD  = 8     # gap between QR and label edge / banner text
 
-    # ── Visitor-type banner (red bar — printed in red ink) ───────
-    banner_h  = 90
-    draw.rectangle([0, y, LABEL_W, y + banner_h], fill=(255, 0, 0))
-    f_banner  = _load_font(FONT_PATHS, 56)
-    draw.text((MARGIN, y + 16), v_type.upper(), fill="white", font=f_banner)
-    y += banner_h + 18
+    # ── Top banner with QR code top-right ────────────────────────
+    banner_h = QR_SIZE + QR_PAD * 2   # banner height driven by QR size
+    draw.rectangle([0, 0, LABEL_W, banner_h], fill=(255, 0, 0))
+
+    # QR code — white background block inset into top-right corner
+    qr_x = LABEL_W - QR_SIZE - QR_PAD
+    qr_y = QR_PAD
+    if visitor_id:
+        try:
+            qr_img = _make_qr(visitor_id, QR_SIZE)
+            # White backing so QR is readable against red banner
+            draw.rectangle([qr_x - QR_PAD, 0, LABEL_W, banner_h], fill="white")
+            img.paste(qr_img, (qr_x, qr_y))
+        except Exception as e:
+            print(f"  QR error: {e}", flush=True)
+
+    # Visitor-type text — left side of banner, vertically centred
+    text_max_w = qr_x - QR_PAD - MARGIN - 8
+    f_banner   = _load_font(FONT_PATHS, 54)
+    vtype_y    = (banner_h - 54) // 2
+    draw.text((MARGIN, vtype_y), v_type.upper(), fill="white", font=f_banner)
+
+    y = banner_h + 20
 
     # ── Visitor name ─────────────────────────────────────────────
-    f_name = _load_font(FONT_PATHS, 70)
+    INNER_W = LABEL_W - 2 * MARGIN
+    f_name  = _load_font(FONT_PATHS, 70)
     for line in _wrap_text(name, f_name, INNER_W, draw):
         draw.text((MARGIN, y), line, fill="black", font=f_name)
         y += 82
@@ -129,34 +160,6 @@ def build_label_image(name: str, company: str, date_str: str,
     # ── Date ─────────────────────────────────────────────────────
     f_date = _load_font(FONT_REG_PATHS, 38)
     draw.text((MARGIN, y), date_str, fill="#555555", font=f_date)
-    y += 50
-
-    # ── Divider line ─────────────────────────────────────────────
-    y += 10
-    draw.line([MARGIN, y, LABEL_W - MARGIN, y], fill="#cccccc", width=2)
-    y += 14
-
-    # ── Barcode ──────────────────────────────────────────────────
-    if visitor_id:
-        try:
-            buf = io.BytesIO()
-            code = bc_lib.get("code128", visitor_id, writer=ImageWriter())
-            code.write(buf, options={
-                "module_height": 14,
-                "font_size":     8,
-                "text_distance": 4,
-                "quiet_zone":    2,
-            })
-            buf.seek(0)
-            bc_img     = Image.open(buf).convert("RGB")
-            scale      = INNER_W / bc_img.width
-            new_h      = int(bc_img.height * scale)
-            bc_img     = bc_img.resize((INNER_W, new_h), Image.LANCZOS)
-            remaining  = LABEL_H - y - 10
-            if new_h <= remaining:
-                img.paste(bc_img, (MARGIN, y))
-        except Exception as e:
-            print(f"  Barcode error: {e}", flush=True)
 
     return img
 

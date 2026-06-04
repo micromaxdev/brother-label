@@ -16,7 +16,7 @@ VENV_DIR="$INSTALL_DIR/venv"
 PY_SCRIPT="print_server_linux.py"
 
 REQUIRED_PKGS="python3 python3-venv python3-pip libusb-1.0-0"
-PIP_PKGS="brother_ql Pillow python-barcode pyusb"
+PIP_PKGS="brother_ql Pillow 'qrcode[pil]' pyusb"
 
 # ── Helpers ──────────────────────────────────────────────────────
 
