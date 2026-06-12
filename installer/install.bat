@@ -660,21 +660,8 @@ if not exist "%SCRIPT_DIR%dashboard-start.cmd" (
 
 :: Copy and inject the site URL into the startup script
 :: Replace the DashURL line with the URL entered in Step 1
-set TEMP_CMD=%TEMP%\dashboard-start-patched.cmd
-if exist "%TEMP_CMD%" del /f /q "%TEMP_CMD%"
-
-for /f "usebackq delims=" %%L in ("%SCRIPT_DIR%dashboard-start.cmd") do (
-    set LINE=%%L
-    echo !LINE! | findstr /b "set DashURL=" >nul
-    if not errorlevel 1 (
-        echo set DashURL=!DASH_URL!>> "%TEMP_CMD%"
-    ) else (
-        echo !LINE!>> "%TEMP_CMD%"
-    )
-)
-
-copy /y "%TEMP_CMD%" "!DASHBOARD_CMD!" >nul
-del /f /q "%TEMP_CMD%" >nul
+copy /y "%SCRIPT_DIR%dashboard-start.cmd" "!DASHBOARD_CMD!" >nul
+powershell -Command "(Get-Content '!DASHBOARD_CMD!') | ForEach-Object { if ($_ -match '^set DashURL=') { 'set DashURL=!DASH_URL!' } else { $_ } } | Set-Content '!DASHBOARD_CMD!'"
 
 if not exist "!DASHBOARD_CMD!" (
     echo [ERROR] Failed to copy dashboard-start.cmd to Startup folder.
