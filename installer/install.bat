@@ -24,6 +24,8 @@ set NSSM=%SCRIPT_DIR%nssm.exe
 set LOG=%SCRIPT_DIR%install_log.txt
 set PRINTER_NAME=Brother QL-810W
 set PRINTER_DRIVER=Brother QL-810W
+set STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+set DASHBOARD_CMD=%STARTUP_DIR%\dashboard-start.cmd
 
 echo. > "%LOG%"
 echo VMS Print Service Installer >> "%LOG%"
@@ -33,10 +35,10 @@ echo. >> "%LOG%"
 cls
 echo ================================================
 echo   VMS Print Service Installer
-echo   Version: 2.0
+echo   Version: 3.0
 echo ================================================
 echo.
-echo   This installer will guide you through 6 steps.
+echo   This installer will guide you through 8 steps.
 echo   Each step pauses for you to verify before
 echo   continuing.
 echo.
@@ -45,10 +47,12 @@ echo.
 echo   PRE-FLIGHT CHECK:
 echo   - Brother QL-810W is plugged in via USB
 echo   - Brother QL-810W is powered ON
+echo   - Firefox is installed on this kiosk
 echo   - USB stick or installer folder contains:
 echo       bsq16aw1101cuk.exe
 echo       bcciw32001.msi
 echo       nssm.exe
+echo       dashboard-start.cmd
 echo     and ..\dist contains:
 echo       print_server.exe
 echo       QL-visitor-custom.lbx
@@ -57,11 +61,67 @@ pause
 
 
 :: ============================================================
-:: STEP 1 - Check for pre-existing installation
+:: STEP 1 - Collect site-specific configuration
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 1 of 6: Pre-Installation Cleanup
+echo   STEP 1 of 8: Site Configuration
+echo ================================================
+echo.
+echo   Before the install begins, you need to enter the
+echo   dashboard URL for this specific site.
+echo.
+echo   Format : https://[server-ip]/dashboard/frontdesk
+echo   Example: https://192.168.1.123/dashboard/frontdesk
+echo.
+
+:ask_url
+set DASH_URL=
+set /p DASH_URL=  Enter dashboard URL for this site: 
+
+if "!DASH_URL!"=="" (
+    echo.
+    echo [ERROR] URL cannot be blank. Please try again.
+    echo.
+    goto :ask_url
+)
+
+:: Basic sanity check - must start with http
+echo !DASH_URL! | findstr /i "^http" >nul
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] URL must start with http:// or https://
+    echo.
+    goto :ask_url
+)
+
+echo.
+echo   You entered: !DASH_URL!
+echo.
+set CONFIRM=
+set /p CONFIRM=  Is this correct? (Y/N): 
+if /i not "!CONFIRM!"=="Y" goto :ask_url
+
+echo.
+echo [OK] Dashboard URL set to: !DASH_URL!
+echo [OK] Dashboard URL: !DASH_URL! >> "%LOG%"
+
+echo.
+echo ------------------------------------------------
+echo   STEP 1 COMPLETE
+echo ------------------------------------------------
+echo   Dashboard URL confirmed: !DASH_URL!
+echo ------------------------------------------------
+echo.
+pause
+
+
+:: ============================================================
+:: STEP 2 - Check for pre-existing installation
+:: ============================================================
+cls
+echo ================================================
+echo   STEP 2 of 8: Pre-Installation Cleanup
 echo ================================================
 echo.
 echo Checking for existing BrotherPrintServer service...
@@ -103,6 +163,16 @@ if exist "%INSTALL_DIR%" (
 )
 
 echo.
+echo Checking for existing dashboard startup entry...
+if exist "%DASHBOARD_CMD%" (
+    echo [FOUND] Existing dashboard-start.cmd in Startup folder. Removing...
+    del /f /q "%DASHBOARD_CMD%" >nul 2>&1
+    echo [OK] Old dashboard startup entry removed.
+) else (
+    echo [OK] No existing dashboard startup entry found.
+)
+
+echo.
 echo Checking spooler for stuck jobs...
 net stop spooler >nul 2>&1
 del /q /f /s "%SystemRoot%\System32\spool\PRINTERS\*.*" >nul 2>&1
@@ -112,11 +182,12 @@ echo [OK] Spooler cleared >> "%LOG%"
 
 echo.
 echo ------------------------------------------------
-echo   STEP 1 COMPLETE
+echo   STEP 2 COMPLETE
 echo ------------------------------------------------
 echo   Verified:
 echo     Service removed (or was not present)
 echo     Install directory cleared
+echo     Old dashboard startup entry cleared
 echo     Print spooler cleared
 echo ------------------------------------------------
 echo.
@@ -124,11 +195,11 @@ pause
 
 
 :: ============================================================
-:: STEP 2 - Brother QL-810W Printer Driver
+:: STEP 3 - Brother QL-810W Printer Driver
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 2 of 6: Brother QL-810W Printer Driver
+echo   STEP 3 of 8: Brother QL-810W Printer Driver
 echo ================================================
 echo.
 echo Checking required files...
@@ -192,7 +263,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo ------------------------------------------------
-echo   STEP 2 COMPLETE
+echo   STEP 3 COMPLETE
 echo ------------------------------------------------
 echo   CHECK NOW:
 echo   Open Device Manager (devmgmt.msc) and confirm:
@@ -205,11 +276,11 @@ pause
 
 
 :: ============================================================
-:: STEP 3 - Force Correct Driver Binding
+:: STEP 4 - Force Correct Driver Binding
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 3 of 6: Force Correct Driver Binding
+echo   STEP 4 of 8: Force Correct Driver Binding
 echo ================================================
 echo.
 echo Windows 11 (build 19041+) automatically assigns its own
@@ -237,7 +308,6 @@ if /i "!CURRENT_DRIVER!"=="Microsoft IPP Class Driver" (
 printui.exe /Xs /n "%PRINTER_NAME%" DriverName "%PRINTER_DRIVER%"
 timeout /t 3 /nobreak >nul
 
-:: Verify the change took effect
 for /f "tokens=*" %%D in ('powershell -Command "Get-Printer | Where-Object { $_.Name -eq '%PRINTER_NAME%' } | Select-Object -ExpandProperty DriverName"') do (
     set NEW_DRIVER=%%D
 )
@@ -253,7 +323,7 @@ if /i "!NEW_DRIVER!"=="%PRINTER_DRIVER%" (
     echo [ERROR] Expected "%PRINTER_DRIVER%", got "!NEW_DRIVER!" >> "%LOG%"
     echo.
     echo This is usually caused by the driver not being installed correctly.
-    echo Go back and re-run the Brother installer from Step 2.
+    echo Go back and re-run the Brother installer from Step 3.
     goto :error
 )
 
@@ -264,11 +334,11 @@ powershell -Command "Get-Printer | Where-Object { $_.Name -eq '%PRINTER_NAME%' }
 
 echo.
 echo ------------------------------------------------
-echo   STEP 3 COMPLETE
+echo   STEP 4 COMPLETE
 echo ------------------------------------------------
 echo   VERIFY the output above shows:
 echo     Name       : Brother QL-810W
-echo     DriverName : Brother QL-810W      <-- must NOT say Microsoft IPP
+echo     DriverName : Brother QL-810W      ^<-- must NOT say Microsoft IPP
 echo     PortName   : USB001
 echo ------------------------------------------------
 echo.
@@ -276,11 +346,11 @@ pause
 
 
 :: ============================================================
-:: STEP 4 - bPAC Client Component
+:: STEP 5 - bPAC Client Component
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 4 of 6: Brother bPAC Client Component
+echo   STEP 5 of 8: Brother bPAC Client Component
 echo ================================================
 echo.
 echo Checking required files...
@@ -301,7 +371,6 @@ msiexec /i "%SCRIPT_DIR%bcciw32001.msi" /quiet /norestart ALLUSERS=1
 set BPAC_EXIT=%errorlevel%
 echo bPAC installer exit code: %BPAC_EXIT% >> "%LOG%"
 
-:: Exit code 1603 means "already installed" - acceptable
 if %BPAC_EXIT% equ 0 (
     echo [OK] bPAC installed successfully.
 ) else if %BPAC_EXIT% equ 1603 (
@@ -327,7 +396,7 @@ echo [OK] bPAC COM object verified. >> "%LOG%"
 
 echo.
 echo ------------------------------------------------
-echo   STEP 4 COMPLETE
+echo   STEP 5 COMPLETE
 echo ------------------------------------------------
 echo   Verified:
 echo     bPAC installed
@@ -338,15 +407,14 @@ pause
 
 
 :: ============================================================
-:: STEP 5 - USB Power Settings + Copy Files + Install Service
+:: STEP 6 - USB Power Settings + Copy Files + Install Service
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 5 of 6: Service Installation
+echo   STEP 6 of 8: Print Service Installation
 echo ================================================
 echo.
 
-:: --- USB Power ---
 echo Disabling USB selective suspend...
 echo (Prevents Windows powering down the printer USB port during idle)
 powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
@@ -356,7 +424,6 @@ echo [OK] USB selective suspend disabled.
 echo [OK] USB power settings applied >> "%LOG%"
 echo.
 
-:: --- Check dist files ---
 echo Checking service files in dist folder...
 if not exist "%DIST_DIR%\print_server.exe" (
     echo [ERROR] print_server.exe not found at: %DIST_DIR%\print_server.exe
@@ -371,7 +438,6 @@ if not exist "%DIST_DIR%\QL-visitor-custom.lbx" (
 echo [OK] Both service files found in dist.
 echo.
 
-:: --- Check nssm ---
 if not exist "%NSSM%" (
     echo [ERROR] nssm.exe not found at: %NSSM%
     echo [ERROR] nssm.exe missing >> "%LOG%"
@@ -380,7 +446,6 @@ if not exist "%NSSM%" (
 echo [OK] nssm.exe found.
 echo.
 
-:: --- Create directory and copy files ---
 echo Creating install directory: %INSTALL_DIR%
 mkdir "%INSTALL_DIR%"
 copy /y "%DIST_DIR%\print_server.exe" "%INSTALL_DIR%\" >nul
@@ -395,7 +460,6 @@ echo [OK] Files copied to %INSTALL_DIR%
 echo [OK] Files copied >> "%LOG%"
 echo.
 
-:: --- Register service ---
 echo Registering Windows service with NSSM...
 "%NSSM%" install %SERVICE_NAME% "%INSTALL_DIR%\print_server.exe" >nul 2>&1
 "%NSSM%" set %SERVICE_NAME% AppDirectory "%INSTALL_DIR%" >nul 2>&1
@@ -408,7 +472,6 @@ echo [OK] Service registered.
 echo [OK] Service registered >> "%LOG%"
 echo.
 
-:: --- Start service ---
 echo Starting service...
 "%NSSM%" start %SERVICE_NAME% >nul 2>&1
 echo Waiting 6 seconds for service to initialise...
@@ -416,40 +479,261 @@ timeout /t 6 /nobreak >nul
 
 echo.
 echo ------------------------------------------------
-echo   STEP 5 COMPLETE
+echo   STEP 6 COMPLETE
 echo ------------------------------------------------
-echo   USB power, file copy, and service registration done.
+echo   USB power, file copy, and service registered.
 echo ------------------------------------------------
 echo.
 pause
 
 
 :: ============================================================
-:: STEP 6 - Full Verification
+:: STEP 7 - Firefox Configuration
 :: ============================================================
 cls
 echo ================================================
-echo   STEP 6 of 6: Full Verification
+echo   STEP 7 of 8: Firefox Configuration
+echo ================================================
+echo.
+echo Configuring Firefox for kiosk mode...
+echo   - Disabling auto-updates
+echo   - Disabling session restore
+echo   - Granting camera permissions for this site
+echo   - Writing installation-level policy
+echo.
+
+:: --- Find Firefox profile ---
+set MOZ_PROF_ROOT=%APPDATA%\Mozilla\Firefox\Profiles
+set MOZ_PROF_TS=
+set MOZ_PROF_PATH=
+
+for /d %%d in ("%MOZ_PROF_ROOT%\*") do (
+    set MOZ_PROF_FN=%%~nxd
+    if not "!MOZ_PROF_FN:.default=!"=="!MOZ_PROF_FN!" (
+        set MOZ_PROF_CHK=%%~td
+        set MOZ_PROF_CHK=!MOZ_PROF_CHK:/=!
+        set MOZ_PROF_CHK=!MOZ_PROF_CHK::=!
+        set MOZ_PROF_CHK=!MOZ_PROF_CHK: =!
+        set MOZ_PROF_CHK=!MOZ_PROF_CHK:~4,4!!MOZ_PROF_CHK:~2,2!!MOZ_PROF_CHK:~0,2!!MOZ_PROF_CHK:~-2!!MOZ_PROF_CHK:~-6,4!
+        if "!MOZ_PROF_CHK!" gtr "!MOZ_PROF_TS!" (
+            set MOZ_PROF_TS=!MOZ_PROF_CHK!
+            set MOZ_PROF_PATH=%%~dpnxd
+        )
+    )
+)
+
+if "!MOZ_PROF_PATH!"=="" (
+    echo [ERROR] No Firefox profile found.
+    echo         Firefox must be launched at least once before running this installer.
+    echo [ERROR] No Firefox profile found >> "%LOG%"
+    goto :error
+)
+echo [OK] Firefox profile found:
+echo       !MOZ_PROF_PATH!
+echo.
+
+:: --- Kill Firefox if open ---
+tasklist | find /i "firefox.exe" >nul
+if not errorlevel 1 (
+    echo Firefox is running. Closing it to apply settings...
+    taskkill /F /IM "firefox.exe" /T >nul
+    timeout /t 3 /nobreak >nul
+    del /f /q "!MOZ_PROF_PATH!\lock" 2>nul
+    del /f /q "!MOZ_PROF_PATH!\.parentlock" 2>nul
+    echo [OK] Firefox closed.
+    echo.
+)
+
+:: --- Write user.js and prefs.js settings ---
+echo Writing Firefox profile settings...
+pushd "!MOZ_PROF_PATH!"
+
+for %%v in (
+    "user.js|app.update.auto|false"
+    "user.js|app.update.enabled|false"
+    "user.js|app.update.service.enabled|false"
+    "user.js|browser.launcherProcess.enabled|false"
+    "user.js|browser.sessionstore.resume_from_crash|false"
+    "user.js|browser.sessionstore.max_resumed_crashes|0"
+    "user.js|browser.sessionstore.enabled|false"
+    "user.js|browser.sessionstore.restore_on_demand|false"
+    "prefs.js|browser.launcherProcess.enabled|false"
+) do (
+    for /f "tokens=1-3 delims=|" %%p in ('echo %%~v') do (
+        set cfgfile=%%p
+        set cfgvar=%%q
+        set cfgval=%%r
+    )
+    set cfgset=
+    set cfgupd=
+    if exist "!cfgfile!" (
+        for /f "tokens=1-3 delims=(,) " %%k in (
+            'findstr /b "user_pref(\"!cfgvar!\"" "!cfgfile!"'
+        ) do ( set cfgset=%%m )
+    )
+    if "!cfgset!"=="" (
+        set cfgupd=ADD
+    ) else if not "!cfgset!"=="!cfgval!" (
+        set cfgupd=UPDATE
+        if exist "%temp%\!cfgfile!" del /f /q "%temp%\!cfgfile!"
+        findstr /b /v "user_pref(\"!cfgvar!" "!cfgfile!" >"%temp%\!cfgfile!"
+        move /y "%temp%\!cfgfile!" "!cfgfile!" >nul
+    ) else (
+        set cfgupd=OK
+    )
+    if not "!cfgupd!"=="OK" (
+        echo   [!cfgupd!] !cfgfile! ^| !cfgvar! = !cfgval!
+        (echo user_pref^("!cfgvar!", !cfgval!^);)>>"!cfgfile!"
+    ) else (
+        echo   [OK]     !cfgfile! ^| !cfgvar!
+    )
+)
+
+popd
+echo.
+echo [OK] Firefox profile settings written.
+echo [OK] Firefox profile settings written >> "%LOG%"
+
+:: --- Write installation-level camera policy ---
+echo.
+echo Writing Firefox camera policy for this site...
+
+:: Extract just the origin (scheme + host) from the full dashboard URL
+:: e.g. https://192.168.1.123/dashboard/frontdesk -> https://192.168.1.123
+for /f "tokens=1,2,3 delims=/" %%a in ("!DASH_URL!") do set DASH_ORIGIN=%%a//%%b
+
+set FF_DIST=C:\Program Files\Mozilla Firefox\distribution
+if not exist "%FF_DIST%" mkdir "%FF_DIST%"
+
+(
+echo {
+echo   "policies": {
+echo     "Permissions": {
+echo       "Camera": {
+echo         "Allow": ["!DASH_ORIGIN!"],
+echo         "BlockNewRequests": false,
+echo         "Locked": false
+echo       }
+echo     }
+echo   }
+echo }
+) > "%FF_DIST%\policies.json"
+
+if not exist "%FF_DIST%\policies.json" (
+    echo [ERROR] Failed to write Firefox policy file.
+    echo [ERROR] Firefox policy write failed >> "%LOG%"
+    goto :error
+)
+echo [OK] Camera permission granted for: !DASH_ORIGIN!
+echo [OK] Firefox policy written for !DASH_ORIGIN! >> "%LOG%"
+
+echo.
+echo ------------------------------------------------
+echo   STEP 7 COMPLETE
+echo ------------------------------------------------
+echo   Verified:
+echo     Firefox profile settings written
+echo     Camera policy written for !DASH_ORIGIN!
+echo ------------------------------------------------
+echo.
+pause
+
+
+:: ============================================================
+:: STEP 8 - Dashboard Startup Script
+:: ============================================================
+cls
+echo ================================================
+echo   STEP 8 of 8: Dashboard Auto-Start
+echo ================================================
+echo.
+echo Installing dashboard startup script...
+echo   URL  : !DASH_URL!
+echo   Dest : !DASHBOARD_CMD!
+echo.
+
+if not exist "%SCRIPT_DIR%dashboard-start.cmd" (
+    echo [ERROR] dashboard-start.cmd not found in installer folder.
+    echo [ERROR] dashboard-start.cmd missing >> "%LOG%"
+    goto :error
+)
+
+:: Copy and inject the site URL into the startup script
+:: Replace the DashURL line with the URL entered in Step 1
+set TEMP_CMD=%TEMP%\dashboard-start-patched.cmd
+if exist "%TEMP_CMD%" del /f /q "%TEMP_CMD%"
+
+for /f "usebackq delims=" %%L in ("%SCRIPT_DIR%dashboard-start.cmd") do (
+    set LINE=%%L
+    echo !LINE! | findstr /b "set DashURL=" >nul
+    if not errorlevel 1 (
+        echo set DashURL=!DASH_URL!>> "%TEMP_CMD%"
+    ) else (
+        echo !LINE!>> "%TEMP_CMD%"
+    )
+)
+
+copy /y "%TEMP_CMD%" "!DASHBOARD_CMD!" >nul
+del /f /q "%TEMP_CMD%" >nul
+
+if not exist "!DASHBOARD_CMD!" (
+    echo [ERROR] Failed to copy dashboard-start.cmd to Startup folder.
+    echo [ERROR] Dashboard startup copy failed >> "%LOG%"
+    goto :error
+)
+echo [OK] dashboard-start.cmd installed to Startup folder.
+echo [OK] Dashboard startup installed >> "%LOG%"
+
+echo.
+echo Verifying URL was written correctly...
+findstr /i "DashURL" "!DASHBOARD_CMD!" | findstr /i "!DASH_URL!" >nul
+if %errorlevel% neq 0 (
+    echo [ERROR] URL not found in installed startup script.
+    echo [ERROR] URL verification failed >> "%LOG%"
+    goto :error
+)
+echo [OK] URL verified in startup script.
+
+echo.
+echo ------------------------------------------------
+echo   STEP 8 COMPLETE
+echo ------------------------------------------------
+echo   Verified:
+echo     dashboard-start.cmd installed to Shell:Startup
+echo     DashURL correctly set to: !DASH_URL!
+echo   On next login this script will auto-launch
+echo   Firefox in kiosk mode pointed at the dashboard.
+echo ------------------------------------------------
+echo.
+pause
+
+goto :verify
+
+
+:: ============================================================
+:: FINAL VERIFICATION
+:: ============================================================
+:verify
+cls
+echo ================================================
+echo   Final Verification
 echo ================================================
 echo.
 
-:: --- Service running? ---
-echo [1/4] Checking service status...
+echo [1/4] Checking print service status...
 sc query %SERVICE_NAME% | find "RUNNING" >nul
 if %errorlevel% neq 0 (
     echo [ERROR] Service is not in RUNNING state.
     echo [ERROR] Service not running >> "%LOG%"
     echo.
-    echo Check the service log for errors:
-    echo %INSTALL_DIR%\print_server.log
+    echo Check the service log: %INSTALL_DIR%\print_server.log
     goto :error
 )
-echo [OK] Service is RUNNING.
+echo [OK] Print service is RUNNING.
 echo [OK] Service running >> "%LOG%"
 echo.
 
-:: --- Health endpoint ---
-echo [2/4] Checking health endpoint (http://localhost:%SERVICE_PORT%/health)...
+echo [2/4] Checking health endpoint...
 powershell -Command "try { $r = Invoke-WebRequest -UseBasicParsing http://localhost:%SERVICE_PORT%/health -TimeoutSec 10; Write-Host '[OK] Health endpoint responded:' $r.Content } catch { Write-Host '[ERROR] Health check failed:' $_.Exception.Message; exit 1 }"
 if %errorlevel% neq 0 (
     echo [ERROR] Health check failed. Check %INSTALL_DIR%\print_server.log
@@ -459,22 +743,21 @@ if %errorlevel% neq 0 (
 echo [OK] Health check passed >> "%LOG%"
 echo.
 
-:: --- Driver still correct? ---
-echo [3/4] Re-confirming driver binding...
+echo [3/4] Re-confirming printer driver binding...
 for /f "tokens=*" %%D in ('powershell -Command "Get-Printer | Where-Object { $_.Name -eq '%PRINTER_NAME%' } | Select-Object -ExpandProperty DriverName"') do set FINAL_DRIVER=%%D
 if /i "!FINAL_DRIVER!"=="%PRINTER_DRIVER%" (
     echo [OK] Driver confirmed: !FINAL_DRIVER!
     echo [OK] Driver confirmed correct >> "%LOG%"
 ) else (
     echo [WARNING] Driver is: !FINAL_DRIVER!
-    echo [WARNING] Driver may have reverted >> "%LOG%"
+    echo [WARNING] Driver may have reverted to IPP >> "%LOG%"
     echo.
-    echo Windows may have swapped back to the IPP driver.
-    echo You may need to re-run Step 3 after the next reboot.
+    echo Windows may have swapped back to the generic IPP driver.
+    echo Run this in admin CMD after reboot if printing fails:
+    echo   printui.exe /Xs /n "Brother QL-810W" DriverName "Brother QL-810W"
 )
 echo.
 
-:: --- Test print ---
 echo [4/4] Sending test print job...
 echo The printer should print a test badge label now.
 echo.
@@ -488,14 +771,12 @@ echo [OK] Test print sent >> "%LOG%"
 
 echo.
 echo ------------------------------------------------
-echo   STEP 6 COMPLETE
-echo ------------------------------------------------
 echo   CHECK NOW:
 echo     Did a label print from the Brother QL-810W?
-echo     If YES  - press any key to see success screen
-echo     If NO   - check the printer is on and connected,
+echo     If YES  - press any key for success screen
+echo     If NO   - check printer is on and USB connected
 echo               check %INSTALL_DIR%\print_server.log
-echo               and refer to PRINTER-SETUP-CHECKLIST.md
+echo               refer to PRINTER-SETUP-CHECKLIST.md
 echo ------------------------------------------------
 echo.
 pause
@@ -516,6 +797,7 @@ echo.
 echo   Installed to  : %INSTALL_DIR%
 echo   Service name  : %SERVICE_NAME%
 echo   Port          : %SERVICE_PORT%
+echo   Dashboard URL : !DASH_URL!
 echo   Service log   : %INSTALL_DIR%\print_server.log
 echo   Install log   : %LOG%
 echo.
@@ -531,9 +813,11 @@ echo ------------------------------------------------
 echo   REBOOT REMINDER:
 echo ------------------------------------------------
 echo.
-echo   Please reboot this computer now and then run
-echo   a test check-in from the kiosk app to confirm
-echo   the service starts correctly on boot.
+echo   Please reboot this kiosk now.
+echo   After reboot, verify:
+echo     1. Print service starts automatically
+echo     2. Firefox launches and opens the dashboard
+echo     3. A full test check-in prints a badge
 echo.
 echo ================================================
 echo.

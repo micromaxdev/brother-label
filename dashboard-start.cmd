@@ -1,6 +1,13 @@
 @echo off&setlocal enabledelayedexpansion
 
-rem Set dashboard target URL
+rem ============================================================
+rem  VMS Kiosk — Dashboard Auto-Start
+rem  Installed to Shell:Startup by install.bat
+rem  DashURL is injected automatically by the installer.
+rem  Do NOT edit DashURL here — re-run install.bat instead.
+rem ============================================================
+
+rem Set dashboard target URL (injected by install.bat — do not edit manually)
 set DashURL=https://dashboard.int.micromax.com.au/dashboard/frontdesk
 
 rem Set Firefox as target dashboard application

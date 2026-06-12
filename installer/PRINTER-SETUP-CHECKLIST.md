@@ -1,12 +1,10 @@
-# VMS Kiosk — Printer Setup Checklist
+# VMS Kiosk — Setup Checklist
 
 ## For use by service delivery team at each site deployment
 
 ---
 
 ## Overview
-
-There are three parts to each deployment:
 
 | Part                                          | Who                | When                                            |
 | --------------------------------------------- | ------------------ | ----------------------------------------------- |
@@ -52,7 +50,7 @@ This setting is stored in the printer's hardware and survives reboots, USB moves
 2. Go to the **Basic** tab
 3. Set **Auto Power Off (AC/DC)** → `None`
 4. Set **Auto Power Off (Li-ion)** → `None`
-5. Click **Apply** — the tool will write the settings directly to the printer firmware
+5. Click **Apply** — the tool writes settings directly to the printer firmware
 6. Wait for the confirmation message
 7. Close the tool and disconnect USB
 
@@ -74,6 +72,7 @@ This setting is stored in the printer's hardware and survives reboots, USB moves
 - USB stick with the installer folder and dist folder
 - The configured Brother QL-810W connected via USB to the kiosk
 - Windows Administrator access on the kiosk
+- The dashboard URL for this site (e.g. `https://192.168.1.123/dashboard/frontdesk`)
 
 **Folder structure required on USB stick:**
 
@@ -84,6 +83,7 @@ USB:\
     bsq16aw1101cuk.exe
     bcciw32001.msi
     nssm.exe
+    dashboard-start.cmd
     stw16013b.exe
     PRINTER-SETUP-CHECKLIST.md
   dist\
@@ -99,7 +99,9 @@ Before running the installer, confirm:
 
 - [ ] Brother QL-810W is plugged in via USB
 - [ ] Brother QL-810W is powered on (green light steady, not flashing)
+- [ ] Firefox has been launched at least once on this machine (required for profile folder to exist)
 - [ ] USB stick is plugged into the kiosk
+- [ ] You have the dashboard URL for this site ready to type
 - [ ] You can see both the `installer` and `dist` folders on the USB stick
 
 ---
@@ -110,25 +112,40 @@ Before running the installer, confirm:
 2. Right-click **`install.bat`** → **Run as administrator**
 3. Click **Yes** on the UAC prompt
 
-The installer runs through **6 steps** with a pause at each one. Do not close the window.
+The installer runs through **8 steps** with a pause at each one. Do not close the window.
 
 ---
 
 ### 2.3 — Step-by-step guide through the installer
 
-#### Step 1 — Pre-Installation Cleanup
+#### Step 1 — Site Configuration
 
-The installer removes any previous installation and clears stuck print jobs.
+The installer asks you to type the dashboard URL for this site.
+
+- Type the full URL including `https://` and the path
+- Confirm when prompted
 
 **Verify before pressing any key:**
 
-- [ ] Output shows `[OK]` for service removal (or "No existing service found")
-- [ ] Output shows `[OK]` for install directory removal
-- [ ] Output shows `[OK]` for print spooler cleared
+- [ ] The URL displayed matches what you typed
+- [ ] Format is `https://[ip-or-hostname]/dashboard/frontdesk`
 
 ---
 
-#### Step 2 — Brother Printer Driver
+#### Step 2 — Pre-Installation Cleanup
+
+Removes any previous installation and clears stuck print jobs.
+
+**Verify before pressing any key:**
+
+- [ ] `[OK]` for service removal (or "No existing service found")
+- [ ] `[OK]` for install directory removal
+- [ ] `[OK]` for old dashboard startup entry removal
+- [ ] `[OK]` for print spooler cleared
+
+---
+
+#### Step 3 — Brother Printer Driver
 
 The installer launches the Brother driver installer GUI.
 
@@ -137,34 +154,34 @@ When the GUI opens:
 1. Select **QL-810W** as the printer model
 2. Select **Local Connection (USB)**
 3. Complete the installation
-4. If prompted to restart — select **Restart Later** (the script will handle this)
+4. If prompted to restart — select **Restart Later**
 
 **Verify before pressing any key:**
 
 - [ ] Output shows `[OK] Brother driver found in driver store`
 - [ ] Open **Device Manager** (`Win + X` → Device Manager)
-- [ ] Confirm **Brother QL-810W** appears under **Print queues**
-- [ ] Confirm there is **no yellow warning triangle** on it
-- [ ] Confirm it does **not** appear under **Other devices**
+- [ ] **Brother QL-810W** appears under **Print queues**
+- [ ] No yellow warning triangle on it
+- [ ] It does **not** appear under **Other devices**
 
 ---
 
-#### Step 3 — Force Correct Driver Binding
+#### Step 4 — Force Correct Driver Binding
 
-This step fixes a Windows 11 issue where it silently swaps the Brother driver for its own generic "Microsoft IPP Class Driver", which prevents bPAC from printing.
+Fixes a Windows 11 issue where it silently swaps the Brother driver for its generic "Microsoft IPP Class Driver", which prevents bPAC from printing.
 
 **Verify before pressing any key:**
 
 - [ ] Output shows `DriverName : Brother QL-810W`
 - [ ] Output does **not** show `Microsoft IPP Class Driver`
 
-> This step is the most common failure point on fresh Windows 11 machines. If the driver name is wrong here, printing will silently fail even though the service reports success.
+> This is the most common failure point on fresh Windows 11 machines. If the driver name is wrong here, printing will silently fail even though the service reports success.
 
 ---
 
-#### Step 4 — bPAC Client Component
+#### Step 5 — bPAC Client Component
 
-Installs the Brother bPAC COM library that `print_server.exe` uses to generate labels.
+Installs the Brother bPAC COM library used by the print service.
 
 **Verify before pressing any key:**
 
@@ -173,26 +190,48 @@ Installs the Brother bPAC COM library that `print_server.exe` uses to generate l
 
 ---
 
-#### Step 5 — Service Installation
+#### Step 6 — Print Service Installation
 
 Copies files, configures USB power settings, and registers the Windows service.
 
 **Verify before pressing any key:**
 
-- [ ] Output shows `[OK] USB selective suspend disabled`
-- [ ] Output shows `[OK] Both service files found in dist`
-- [ ] Output shows `[OK] Files copied to C:\VMS\PrintService`
-- [ ] Output shows `[OK] Service registered`
+- [ ] `[OK] USB selective suspend disabled`
+- [ ] `[OK] Both service files found in dist`
+- [ ] `[OK] Files copied to C:\VMS\PrintService`
+- [ ] `[OK] Service registered`
 
 ---
 
-#### Step 6 — Full Verification
+#### Step 7 — Firefox Configuration
 
-The installer performs four automatic checks and sends a real test print.
+Configures Firefox profile settings for kiosk mode and writes the camera permission policy for this site's URL.
 
 **Verify before pressing any key:**
 
-- [ ] `[1/4]` Service is RUNNING
+- [ ] Output shows `[OK] Firefox profile found`
+- [ ] All profile settings show `[OK]` or `[ADD]` or `[UPDATE]`
+- [ ] Output shows `[OK] Camera permission granted for: https://[your-site-ip-or-host]`
+
+---
+
+#### Step 8 — Dashboard Auto-Start
+
+Installs `dashboard-start.cmd` into the Windows Shell:Startup folder with the site URL already written in.
+
+**Verify before pressing any key:**
+
+- [ ] Output shows `[OK] dashboard-start.cmd installed to Startup folder`
+- [ ] Output shows `[OK] URL verified in startup script`
+- [ ] The URL shown matches what you entered in Step 1
+
+---
+
+### 2.4 — Final verification (run by installer automatically)
+
+The installer performs four automatic checks after Step 8:
+
+- [ ] `[1/4]` Print service is RUNNING
 - [ ] `[2/4]` Health endpoint responded with `{"status": "ok", ...}`
 - [ ] `[3/4]` Driver confirmed: `Brother QL-810W`
 - [ ] `[4/4]` Test print sent — **a label physically printed from the printer**
@@ -201,7 +240,7 @@ The installer performs four automatic checks and sends a real test print.
 
 ---
 
-### 2.4 — Post-installer steps
+### 2.5 — Post-installer steps
 
 After the **Installation Complete** screen:
 
@@ -215,24 +254,33 @@ After the **Installation Complete** screen:
 
 ### (Complete after every installation)
 
-After the kiosk reboots, verify the service starts automatically and printing still works end-to-end through the kiosk application.
+After the kiosk reboots, verify the service and dashboard both start automatically.
 
 ---
 
-### 3.1 — Service auto-start check
+### 3.1 — Dashboard auto-launch check
 
-1. Open an admin PowerShell or CMD
-2. Run:
-   ```
-   sc query BrotherPrintServer
-   ```
-3. Confirm output shows `STATE : 4 RUNNING`
+- [ ] Firefox opens automatically after login
+- [ ] Firefox opens in full-screen kiosk mode
+- [ ] The dashboard URL is loaded (no address bar visible)
 
-- [ ] Service is RUNNING after reboot without any manual intervention
+> If Firefox does not open, check that `dashboard-start.cmd` exists in `C:\Users\[username]\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup`
 
 ---
 
-### 3.2 — Health endpoint check
+### 3.2 — Print service auto-start check
+
+Open an admin CMD and run:
+
+```cmd
+sc query BrotherPrintServer
+```
+
+- [ ] Output shows `STATE : 4 RUNNING`
+
+---
+
+### 3.3 — Health endpoint check
 
 In admin PowerShell:
 
@@ -245,16 +293,15 @@ Invoke-WebRequest -UseBasicParsing http://localhost:5050/health
 
 ---
 
-### 3.3 — End-to-end kiosk test
+### 3.4 — End-to-end kiosk test
 
-1. Open the kiosk application
-2. Complete a full test check-in with a real name and company
-3. Confirm a badge label prints correctly
-4. Confirm the badge shows name, date, and barcode
-5. Scan the barcode with the built-in scanner and confirm it reads
+1. Complete a full test check-in through the kiosk dashboard
+2. Confirm a badge label prints correctly
+3. Confirm the badge shows name, date, and barcode
+4. Scan the barcode with the built-in scanner and confirm it reads
 
 - [ ] Badge printed with correct content
-- [ ] Barcode on badge scanned correctly
+- [ ] Barcode scanned correctly
 
 ---
 
@@ -282,20 +329,25 @@ If it was reset or is not responding:
 
 ## Troubleshooting
 
-| Symptom                                                  | Likely cause                               | Action                                                                                               |
-| -------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------- | -------------- |
-| UAC prompt does not appear                               | Script not run as admin                    | Right-click `install.bat` → Run as administrator                                                     |
-| Step 2 fails — driver not in store                       | Brother installer silently failed          | Run `bsq16aw1101cuk.exe` manually, complete the GUI, then re-run `install.bat`                       |
-| Step 2 — printer in "Other devices" with yellow triangle | Driver mismatch or install error           | Uninstall from Device Manager → delete driver → rerun `bsq16aw1101cuk.exe` manually                  |
-| Step 3 — driver still shows "Microsoft IPP Class Driver" | Windows re-grabbed the printer             | Run `printui.exe /Xs /n "Brother QL-810W" DriverName "Brother QL-810W"` in admin CMD, then re-verify |
-| Step 4 fails — COM object not registered                 | bPAC MSI failed silently                   | Right-click `bcciw32001.msi` → Install, complete GUI, then re-run `install.bat`                      |
-| Step 6 — service not running                             | print_server.exe crash on start            | Check `C:\VMS\PrintService\print_server.log` for the error                                           |
-| Step 6 — health check fails                              | Port 5050 blocked or service not up        | Check log, confirm no other process on port 5050: `netstat -ano                                      | findstr :5050` |
-| Step 6 — test print sent OK but no label printed         | Driver reverted to IPP after service start | Re-run Step 3 manually then restart service                                                          |
-| Service stops working after reboot                       | Windows reassigned IPP driver on boot      | Run Step 3 commands manually and restart service — add a startup task if this recurs                 |
-| Printer turns off during the day                         | Auto Power Off not disabled                | Run Printer Setting Tool (`stw16013b.exe`), set both Auto Power Off values to None, apply            |
-| Badge prints but barcode does not scan                   | Scanner not configured                     | Follow Barcode Scanner Setup section above                                                           |
-| Scanner beeps but nothing appears                        | Wrong interface mode                       | Set to USB PC Keyboard in EZConfig-Scanning                                                          |
+| Symptom                                                  | Likely cause                                    | Action                                                                               |
+| -------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| UAC prompt does not appear                               | Script not run as admin                         | Right-click `install.bat` → Run as administrator                                     |
+| Step 1 — URL rejected                                    | Wrong format                                    | Must start with `http://` or `https://`                                              |
+| Step 3 fails — driver not in store                       | Brother installer silently failed               | Run `bsq16aw1101cuk.exe` manually, complete the GUI, then re-run `install.bat`       |
+| Step 3 — printer in "Other devices" with yellow triangle | Driver mismatch                                 | Uninstall from Device Manager → delete driver → rerun `bsq16aw1101cuk.exe` manually  |
+| Step 4 — driver still shows "Microsoft IPP Class Driver" | Windows re-grabbed the printer                  | Run `printui.exe /Xs /n "Brother QL-810W" DriverName "Brother QL-810W"` in admin CMD |
+| Step 5 fails — COM object not registered                 | bPAC MSI failed silently                        | Right-click `bcciw32001.msi` → Install, complete GUI, then re-run `install.bat`      |
+| Step 7 — no Firefox profile found                        | Firefox never launched                          | Close installer, open Firefox, close it, re-run `install.bat`                        |
+| Step 7 — policy write failed                             | Firefox installed to non-default path           | Check Firefox is at `C:\Program Files\Mozilla Firefox\`                              |
+| Step 8 — startup copy failed                             | Startup folder path differs (non-standard user) | Copy `dashboard-start.cmd` manually to Shell:Startup                                 |
+| Final check — service not running                        | print_server.exe crash on start                 | Check `C:\VMS\PrintService\print_server.log`                                         |
+| Final check — health check fails                         | Port 5050 blocked or service not up             | `netstat -ano \| findstr :5050` to check for port conflict                           |
+| Final check — test print sent OK but no label            | Driver reverted to IPP                          | Re-run Step 4 manually then restart service                                          |
+| After reboot — Firefox doesn't open                      | dashboard-start.cmd not in Startup              | Copy file manually to `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`      |
+| After reboot — wrong URL in dashboard                    | URL entered incorrectly in Step 1               | Re-run `install.bat` and enter the correct URL                                       |
+| After reboot — printing stops working                    | Windows reassigned IPP driver                   | Run Step 4 commands manually and restart service                                     |
+| Printer turns off during the day                         | Auto Power Off not disabled                     | Run Printer Setting Tool (`stw16013b.exe`), set both Auto Power Off to None          |
+| Badge prints but barcode won't scan                      | Scanner not configured                          | Follow Barcode Scanner Setup section above                                           |
 
 ---
 
@@ -353,15 +405,23 @@ del /q /f /s "%SystemRoot%\System32\spool\PRINTERS\*.*"
 net start spooler
 ```
 
+**Check what is in Shell:Startup:**
+
+```cmd
+dir "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
+```
+
 ---
 
 ## File Locations Reference
 
-| Item               | Path                                        |
-| ------------------ | ------------------------------------------- |
-| Service executable | `C:\VMS\PrintService\print_server.exe`      |
-| Label template     | `C:\VMS\PrintService\QL-visitor-custom.lbx` |
-| Service log        | `C:\VMS\PrintService\print_server.log`      |
-| Install log        | `<USB stick>\installer\install_log.txt`     |
-| Health endpoint    | `http://localhost:5050/health`              |
-| Print endpoint     | `http://localhost:5050/print` (POST)        |
+| Item                     | Path                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| Service executable       | `C:\VMS\PrintService\print_server.exe`                                        |
+| Label template           | `C:\VMS\PrintService\QL-visitor-custom.lbx`                                   |
+| Service log              | `C:\VMS\PrintService\print_server.log`                                        |
+| Install log              | `<USB stick>\installer\install_log.txt`                                       |
+| Health endpoint          | `http://localhost:5050/health`                                                |
+| Print endpoint           | `http://localhost:5050/print` (POST)                                          |
+| Dashboard startup script | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\dashboard-start.cmd` |
+| Firefox camera policy    | `C:\Program Files\Mozilla Firefox\distribution\policies.json`                 |
